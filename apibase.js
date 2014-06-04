@@ -82,6 +82,7 @@
                 .on('value', function (snapshot) {
                     if (!snapshot.val()) return; 
                     deferred.resolve.apply(this, [snapshot.val()]);
+                    snapshot.ref().off();
                 });
             
             return deferred.promise;
