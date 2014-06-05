@@ -144,6 +144,7 @@
         };
         root.Firebase = require('firebase');
     } else {
+        root = window;
         if (!root.Firebase) {
             throw "Please include Firebase.js";
         }
