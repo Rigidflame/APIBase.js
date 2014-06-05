@@ -53,14 +53,18 @@
         var value = snapshot.val();
         var methodName = snapshot.ref().parent().name();
         var ticketName = snapshot.ref().name();
-        var args = snapshot.val();
-        
-        var response = this[methodName].apply(this, args);
-        this._ref
+        var responseRef = this._ref
             .child('queue/response')
             .child(methodName)
-            .child(ticketName)
-            .set(response);
+            .child(ticketName);
+        var args = snapshot.val();
+        
+        try {
+            var response = this[methodName].apply(this, args);
+            responseRef.child('success').set(response);
+        } catch (err) {
+            responseRef.child('error').set(err);
+        }
     };
     
     APIBase.prototype._createFunction = function (methodName) {
@@ -80,8 +84,10 @@
                 .child(methodName)
                 .child(ticket.name())
                 .on('value', function (snapshot) {
-                    if (!snapshot.val()) return; 
-                    deferred.resolve.apply(this, [snapshot.val()]);
+                    var returned = snapshot.val();
+                    if (!returned) return; 
+                    if (returned.success) deferred.resolve.apply(this, [snapshot.val().success]);
+                    if (returned.error) deferred.cancel.apply(this, [snapshot.val().error]);
                     snapshot.ref().off();
                 });
             
@@ -91,11 +97,13 @@
     
     var defer = function (context) {
         var local = {};
+        local.status = 0;
 
         local.promise = {
-            then: function (callback) {
-                local.callback = callback;
-                if (local.resolved) {
+            then: function (successCallback, errorCallback) {
+                local.successCallback = successCallback;
+                local.errorCallback = errorCallback;
+                if (local.status) {
                     local.finish();
                 }
             }
@@ -103,14 +111,26 @@
 
         local.resolve = function () {
             local.args = arguments;
-            if (local.callback) {
+            local.status = 1;
+            if (local.successCallback) {
                 local.finish();
             }
-            local.resolved = true;
+        };
+        
+        local.cancel = function () {
+            local.args = arguments;
+            local.status = 2;
+            if (local.errorCallback) {
+                local.finish();
+            }
         };
 
         local.finish = function () {
-            local.callback.apply(context, local.args);
+            if (local.status == 1) {
+                local.successCallback.apply(context, local.args);
+            }else if (local.status == 2) {
+                local.errorCallback.apply(context, local.args);
+            }
         };
 
         return local;
