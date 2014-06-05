@@ -59,10 +59,10 @@ Alternatively, if you don't want to fetch the entire method list on the client, 
 
 ```js
 // Load a specific method
-var search = apibase.get('search');
+var hello = apibase.get('hello');
 
 // Then call it like a normal function!
-search("Blind Fish").then(function (result) {
+hello("Blind Fish").then(function (result) {
     console.log(result);
 });
 
