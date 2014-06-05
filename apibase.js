@@ -4,31 +4,51 @@
     
     var APIBase = function (URL) {
         if (typeof URL !== 'string') throw new Error("URL must be a string!");
-        this._ref = new root.Firebase(URL);
-        this._attributes = [];
+        var self = this;
         
-        for (var attr in this) {
-            this._attributes.push(attr);   
+        self._ref = new root.Firebase(URL);
+        self._attributes = [];
+        self._online = false;
+        
+        for (var attr in self) {
+            self._attributes.push(attr);   
         }
+        
+        self._ref.child('_meta/online').on('value', function (snapshot) {
+            self._online = snapshot.val()? true:false; 
+        });
     };
 
     APIBase.prototype.publish = function () {
-        var methods = {};
-        for (var attr in this) {
-            if (this._attributes.indexOf(attr) == -1) {
-                methods[attr] = true;   
+        var deferred = defer();
+        var self = this;
+        
+        this._ref.child('_meta/online').once('value', function (snapshot) {
+            if (snapshot.val()) throw "A APIBase server is already running at " + self._ref.toString(); 
+            deferred.resolve();
+        });
+        
+        deferred.promise.then(function () {
+            var methods = {};
+            for (var attr in self) {
+                if (self._attributes.indexOf(attr) == -1) {
+                    methods[attr] = true;   
+                }
             }
-        }
-        
-        this._ref.child('_meta/methods').set(methods);
-        this._ref.child('_meta/online').set(true);
-        this._ref.child('_meta/online')
-            .onDisconnect().set(false);
-        
-        for (var methodName in methods) {
-            var methodQueue = this._ref.child('queue').child('request');
-            methodQueue.child(methodName).on('child_added', this._handleQueueItem.bind(this));
-        }
+
+            self._ref.child('_meta/methods').set(methods);
+            self._ref.child('_meta/methods')
+                .onDisconnect().remove();
+
+            self._ref.child('_meta/online').set(true);
+            self._ref.child('_meta/online')
+                .onDisconnect().set(false);
+
+            for (var methodName in methods) {
+                var methodQueue = self._ref.child('queue').child('request');
+                methodQueue.child(methodName).on('child_added', self._handleQueueItem.bind(self));
+            }
+        });
     };
     
     APIBase.prototype.get = function (methodName) {
@@ -58,13 +78,26 @@
             .child(methodName)
             .child(ticketName);
         var args = snapshot.val();
+        var methodDeferred = defer();
+        
+        args.push(methodDeferred);
         
         try {
             var response = this[methodName].apply(this, args);
-            responseRef.child('success').set(response);
+            if (response !== undefined) {
+                responseRef.child('success').set(response);
+            }else{
+                methodDeferred
+                    .promise
+                    .then(function (response) {
+                        responseRef.child('success').set(response);   
+                    });
+            }
         } catch (err) {
             responseRef.child('error').set(err);
         }
+        
+        snapshot.ref().remove();
     };
     
     APIBase.prototype._createFunction = function (methodName) {
@@ -89,6 +122,7 @@
                     if (returned.success) deferred.resolve.apply(this, [snapshot.val().success]);
                     if (returned.error) deferred.cancel.apply(this, [snapshot.val().error]);
                     snapshot.ref().off();
+                    snapshot.ref().remove();
                 });
             
             return deferred.promise;
@@ -97,38 +131,38 @@
     
     var defer = function (context) {
         var local = {};
-        local.status = 0;
+        local._status = 0;
 
         local.promise = {
             then: function (successCallback, errorCallback) {
                 local.successCallback = successCallback;
                 local.errorCallback = errorCallback;
-                if (local.status) {
-                    local.finish();
+                if (local._status) {
+                    local._finish();
                 }
             }
         };
 
         local.resolve = function () {
             local.args = arguments;
-            local.status = 1;
+            local._status = 1;
             if (local.successCallback) {
-                local.finish();
+                local._finish();
             }
         };
         
         local.cancel = function () {
             local.args = arguments;
-            local.status = 2;
+            local._status = 2;
             if (local.errorCallback) {
-                local.finish();
+                local._finish();
             }
         };
 
-        local.finish = function () {
-            if (local.status == 1) {
+        local._finish = function () {
+            if (local._status == 1) {
                 local.successCallback.apply(context, local.args);
-            }else if (local.status == 2) {
+            }else if (local._status == 2) {
                 local.errorCallback.apply(context, local.args);
             }
         };
