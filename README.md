@@ -8,51 +8,61 @@ Getting Started
 
 APIBase consists of two parts, the server and the client. These will both use the same APIBase.js file, but will invoke different methods. To get started, create a new APIBase which points to your Firebase.
 
-    var apibase = require('../apibase')("https://brilliant-fire-67.firebaseio.com/apibase");
+```js
+var apibase = require('../apibase')("https://brilliant-fire-67.firebaseio.com/apibase");
+```
 
 The next step is to add some API methods straight onto the APIBase object...
 
-    apibase.search = function (search) {   
-        return 'I LIKE SEARCHING FOR ' + search;
-    };
+```js
+apibase.search = function (search) {   
+    return 'I LIKE SEARCHING FOR ' + search;
+};
 
-    apibase.fail = function (search) {   
-        throw search;
-        return "This shouldnt happen.";
-    };
+apibase.fail = function (search) {   
+    throw search;
+    return "This shouldnt happen.";
+};
+```
 
 APIBase knows which methods you've added and will expose these to clients. The last step on the server is to publish your API by calling `.publish()`.
 
-    apibase.publish();
+```js
+apibase.publish();
+```
 
 That's it! You now have an API set up. The next step is to access these methods on a client. A client is set up in a very similar way, except we will use the `.retreive()` method to fetch the API methods we can use.
 
-    var apibase = require('../apibase')("https://brilliant-fire-67.firebaseio.com/apibase");
+```js
+var apibase = require('../apibase')("https://brilliant-fire-67.firebaseio.com/apibase");
 
-    apibase.retreive().then(function(API) {
-        // API will expose the .search and .fail methods
-    });
+apibase.retreive().then(function(API) {
+    // API will expose the .search and .fail methods
+});
+```
         
 The methods on `API` are asynchronous, so they return a promise which can be passed a success and failure/error callback. 
 
-    var apibase = require('../apibase')("https://brilliant-fire-67.firebaseio.com/apibase");
+```js
+var apibase = require('../apibase')("https://brilliant-fire-67.firebaseio.com/apibase");
 
-    apibase.retreive().then(function(API) {
-    
-        // We call search and pass only a success callback
-        API.search("Fish").then(function (result) {
-            console.log(result);
-        });
+apibase.retreive().then(function(API) {
 
-        // We call fail (a message which always throws an error)
-        // and pass both a success and error callback
-        API.fail("Fish").then(function (result) {
-            // This won't be called
-            console.log("Success");
-        }, function (err) {
-            // This will.
-            console.log("Error: " + err);   
-        });
+    // We call search and pass only a success callback
+    API.search("Fish").then(function (result) {
+        console.log(result);
     });
+
+    // We call fail (a message which always throws an error)
+    // and pass both a success and error callback
+    API.fail("Fish").then(function (result) {
+        // This won't be called
+        console.log("Success");
+    }, function (err) {
+        // This will.
+        console.log("Error: " + err);   
+    });
+});
+```
 
 This makes it extremely easy to build powerful, fast APIs on top of Firebase without worrying about the communication and sync details!
