@@ -12,3 +12,7 @@ apibase.retreive().then(function(API) {
         console.log("Error: " + err);   
     });
 });
+
+apibase.get('search')("Blind Fish").then(function (result) {
+    console.log(result);
+});
