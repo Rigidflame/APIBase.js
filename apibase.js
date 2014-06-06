@@ -4,7 +4,7 @@
 
     "use strict";
 
-    var APIBase, root, defer, isNode = false;
+    var APIBase, root, isNode = false;
 
     APIBase = function (URL) {
         if (typeof URL !== 'string') { throw new Error("URL must be a string!"); }
@@ -27,7 +27,7 @@
     };
 
     APIBase.prototype.publish = function () {
-        var deferred = defer(),
+        var deferred = this._defer,
             self = this;
 
         this._ref.child('_meta/online').once('value', function (snapshot) {
@@ -65,7 +65,7 @@
 
     APIBase.prototype.retreive = function () {
         var API = {},
-            deferred = defer(),
+            deferred = this._defer,
             self = this;
 
         this._ref.child('_meta/methods').once('value', function (snapshot) {
@@ -109,7 +109,7 @@
                 .child(methodName)
                 .child(ticketName),
             args = snapshot.val(),
-            methodDeferred = defer(),
+            methodDeferred = this._defer,
             response;
 
         args.push(methodDeferred);
@@ -135,7 +135,7 @@
     APIBase.prototype._createFunction = function (methodName) {
         var self = this;
         return function () {
-            var deferred = defer(),
+            var deferred = this._defer,
                 ticket = self._ref
                     .child('queue/request')
                     .child(methodName)
@@ -160,7 +160,7 @@
         };
     };
 
-    defer = function (context) {
+    APIBase.prototype._defer = function (context) {
         var local = {};
         local._status = 0;
 
