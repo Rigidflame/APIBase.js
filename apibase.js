@@ -1,42 +1,46 @@
+/*jslint nomen: true */
+/*global module, require */
 (function () {
-   "use strict";
-    var isNode = false;
-    
-    var APIBase = function (URL) {
-        if (typeof URL !== 'string') throw new Error("URL must be a string!");
-        var self = this;
-        
+
+    "use strict";
+
+    var APIBase, root, defer, isNode = false;
+
+    APIBase = function (URL) {
+        if (typeof URL !== 'string') { throw new Error("URL must be a string!"); }
+        var attr, self = this;
+
         self._ref = new root.Firebase(URL);
         self._attributes = [];
         self._online = false;
         self._authState = 0;
         self._pendingResolutions = [];
-        self._user;
-        
-        for (var attr in self) {
-            self._attributes.push(attr);   
+        self._user = {};
+
+        for (attr in self) {
+            self._attributes.push(attr);
         }
-        
+
         self._ref.child('_meta/online').on('value', function (snapshot) {
-            self._online = snapshot.val()? true:false; 
+            self._online = snapshot.val() ? true : false;
         });
     };
 
     APIBase.prototype.publish = function () {
-        var deferred = defer();
-        var self = this;
-        
+        var deferred = defer(),
+            self = this;
+
         this._ref.child('_meta/online').once('value', function (snapshot) {
-            if (snapshot.val()) throw "A APIBase server is already running at " + self._ref.toString(); 
+            if (snapshot.val()) { throw "A APIBase server is already running at " + self._ref.toString(); }
             self._pendingResolutions.push(deferred.resolve.bind(deferred));
             self._progress();
         });
-        
+
         deferred.promise.then(function () {
-            var methods = {};
-            for (var attr in self) {
-                if (self._attributes.indexOf(attr) == -1) {
-                    methods[attr] = true;   
+            var attr, methodName, methodQueue, methods = {};
+            for (attr in self) {
+                if (self._attributes.indexOf(attr) === -1) {
+                    methods[attr] = true;
                 }
             }
 
@@ -48,22 +52,22 @@
             self._ref.child('_meta/online')
                 .onDisconnect().set(false);
 
-            for (var methodName in methods) {
-                var methodQueue = self._ref.child('queue').child('request');
+            for (methodName in methods) {
+                methodQueue = self._ref.child('queue').child('request');
                 methodQueue.child(methodName).on('child_added', self._handleQueueItem.bind(self));
             }
         });
     };
-    
+
     APIBase.prototype.get = function (methodName) {
         return this._createFunction(methodName);
     };
-    
+
     APIBase.prototype.retreive = function () {
-        var API = {};
-        var deferred = defer();
-        var self = this;
-        
+        var API = {},
+            deferred = defer(),
+            self = this;
+
         this._ref.child('_meta/methods').once('value', function (snapshot) {
             snapshot.forEach(function (methodSnapshot) {
                 var methodName = methodSnapshot.name();
@@ -72,89 +76,91 @@
             self._pendingResolutions.push(deferred.resolve.bind(deferred, API));
             self._progress();
         });
-        
+
         return deferred.promise;
     };
-    
+
     APIBase.prototype.auth = function (token) {
         var self = this;
         self._authState = 1; // Auth in the progress
         self._ref.auth(token, function (err, user) {
-            if (err) throw err;
+            if (err) { throw err; }
             self._authState = 2; // Auth complete
             self._user = user;
             self._progress();
         });
     };
-    
+
     APIBase.prototype._progress = function () {
-        if (this._authState == 1) return;
-        for (var r=0; r<this._pendingResolutions.length; r++) {
-            this._pendingResolutions[r](); 
+        var resId;
+        if (this._authState === 1) { return false; }
+        for (resId = 0; resId < this._pendingResolutions.length; resId += 1) {
+            this._pendingResolutions[resId]();
         }
+        return true;
     };
-    
+
     APIBase.prototype._handleQueueItem = function (snapshot) {
-        var value = snapshot.val();
-        var methodName = snapshot.ref().parent().name();
-        var ticketName = snapshot.ref().name();
-        var responseRef = this._ref
-            .child('queue/response')
-            .child(methodName)
-            .child(ticketName);
-        var args = snapshot.val();
-        var methodDeferred = defer();
-        
+        var value = snapshot.val(),
+            methodName = snapshot.ref().parent().name(),
+            ticketName = snapshot.ref().name(),
+            responseRef = this._ref
+                .child('queue/response')
+                .child(methodName)
+                .child(ticketName),
+            args = snapshot.val(),
+            methodDeferred = defer(),
+            response;
+
         args.push(methodDeferred);
-        
+
         try {
-            var response = this[methodName].apply(this, args);
+            response = this[methodName].apply(this, args);
             if (response !== undefined) {
                 responseRef.child('success').set(response);
-            }else{
+            } else {
                 methodDeferred
                     .promise
                     .then(function (response) {
-                        responseRef.child('success').set(response);   
+                        responseRef.child('success').set(response);
                     });
             }
         } catch (err) {
             responseRef.child('error').set(err);
         }
-        
+
         snapshot.ref().remove();
     };
-    
+
     APIBase.prototype._createFunction = function (methodName) {
         var self = this;
         return function () {
-            var deferred = defer();
-            
-            var ticket = self._ref
-                .child('queue/request')
-                .child(methodName)
-                .push(
-                    Array.prototype.slice.call(arguments)
-                );
-            
+            var deferred = defer(),
+                ticket = self._ref
+                    .child('queue/request')
+                    .child(methodName)
+                    .push(
+                        Array.prototype.slice.call(arguments)
+                    );
+
             self._ref
                 .child('queue/response')
                 .child(methodName)
                 .child(ticket.name())
                 .on('value', function (snapshot) {
                     var returned = snapshot.val();
-                    if (!returned) return; 
-                    if (returned.success) deferred.resolve.apply(this, [snapshot.val().success]);
-                    if (returned.error) deferred.cancel.apply(this, [snapshot.val().error]);
+                    if (!returned) { return false; }
+                    if (returned.success) { deferred.resolve.apply(this, [snapshot.val().success]); }
+                    if (returned.error) { deferred.cancel.apply(this, [snapshot.val().error]); }
                     snapshot.ref().off();
                     snapshot.ref().remove();
                 });
-            
+
             return deferred.promise;
-        }
+        };
     };
-    
-    var defer = function (context) {
+
+    defer = function (context) {
         var local = {};
         local._status = 0;
 
@@ -175,7 +181,7 @@
                 local._finish();
             }
         };
-        
+
         local.cancel = function () {
             local.args = arguments;
             local._status = 2;
@@ -185,17 +191,17 @@
         };
 
         local._finish = function () {
-            if (local._status == 1) {
+            if (local._status === 1) {
                 local.successCallback.apply(context, local.args);
-            }else if (local._status == 2) {
+            } else if (local._status === 2) {
                 local.errorCallback.apply(context, local.args);
             }
         };
 
         return local;
     };
-    
-    var root = this || {};
+
+    root = this || {};
     if (typeof module !== 'undefined' && module.exports) {
         isNode = true;
         module.exports = function (URL) {
