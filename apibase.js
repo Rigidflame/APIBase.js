@@ -9,6 +9,9 @@
         self._ref = new root.Firebase(URL);
         self._attributes = [];
         self._online = false;
+        self._authState = 0;
+        self._pendingResolutions = [];
+        self._user;
         
         for (var attr in self) {
             self._attributes.push(attr);   
@@ -25,7 +28,8 @@
         
         this._ref.child('_meta/online').once('value', function (snapshot) {
             if (snapshot.val()) throw "A APIBase server is already running at " + self._ref.toString(); 
-            deferred.resolve();
+            self._pendingResolutions.push(deferred.resolve.bind(deferred));
+            self._progress();
         });
         
         deferred.promise.then(function () {
@@ -59,14 +63,35 @@
         var API = {};
         var deferred = defer();
         var self = this;
+        
         this._ref.child('_meta/methods').once('value', function (snapshot) {
             snapshot.forEach(function (methodSnapshot) {
                 var methodName = methodSnapshot.name();
                 API[methodName] = self._createFunction(methodName);
             });
-            deferred.resolve(API);
+            self._pendingResolutions.push(deferred.resolve.bind(deferred, API));
+            self._progress();
         });
+        
         return deferred.promise;
+    };
+    
+    APIBase.prototype.auth = function (token) {
+        var self = this;
+        self._authState = 1; // Auth in the progress
+        self._ref.auth(token, function (err, user) {
+            if (err) throw err;
+            self._authState = 2; // Auth complete
+            self._user = user;
+            self._progress();
+        });
+    };
+    
+    APIBase.prototype._progress = function () {
+        if (this._authState == 1) return;
+        for (var r=0; r<this._pendingResolutions.length; r++) {
+            this._pendingResolutions[r](); 
+        }
     };
     
     APIBase.prototype._handleQueueItem = function (snapshot) {
