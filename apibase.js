@@ -4,7 +4,7 @@
 
     "use strict";
 
-    var APIBase, root, isNode = false;
+    var APIBase, root;
 
     APIBase = function (URL) {
         if (typeof URL !== 'string') { throw new Error("URL must be a string!"); }
@@ -63,7 +63,7 @@
         return this._createFunction(methodName);
     };
 
-    APIBase.prototype.retreive = function () {
+    APIBase.prototype.retrieve = function () {
         var API = {},
             deferred = this._defer,
             self = this;
@@ -203,7 +203,6 @@
 
     root = this || {};
     if (typeof module !== 'undefined' && module.exports) {
-        isNode = true;
         module.exports = function (URL) {
             return new APIBase(URL);
         };

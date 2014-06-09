@@ -44,8 +44,8 @@ var apibase = new APIBase("<Your Firebase>/apibase");
 // optionally call apibase.auth with a token to authenticate
 // apibase.auth(TOKEN);
 
-// We can retreive an object with our API methods
-apibase.retreive().then(function(API) {
+// We can retrieve an object with our API methods
+apibase.retrieve().then(function(API) {
     // Then call any API method
     API.hello("Abe").then(function (result) {
         // These methods return promises, because

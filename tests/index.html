@@ -9,11 +9,11 @@
         apibase.retreive().then(function(API) {
             // We wrap API.search in a arbitrary method on window so we can call
             // it from an onclick for the sake of this demo.
-            window.search = function (phrase) {
-                API.search(phrase).then(function (result) {
-                    alert(result);
-                });
-            };
+
+            API.search(phrase).then(function (result) {
+                alert(result);
+            });
+
         });
     </script>
 </head>
