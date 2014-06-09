@@ -27,7 +27,7 @@
     };
 
     APIBase.prototype.publish = function () {
-        var deferred = this._defer,
+        var deferred = this._defer(),
             self = this;
 
         this._ref.child('_meta/online').once('value', function (snapshot) {
@@ -35,7 +35,7 @@
             self._pendingResolutions.push(deferred.resolve.bind(deferred));
             self._progress();
         });
-
+        
         deferred.promise.then(function () {
             var attr, methodName, methodQueue, methods = {};
             for (attr in self) {
@@ -65,7 +65,7 @@
 
     APIBase.prototype.retrieve = function () {
         var API = {},
-            deferred = this._defer,
+            deferred = this._defer(),
             self = this;
 
         this._ref.child('_meta/methods').once('value', function (snapshot) {
@@ -109,7 +109,7 @@
                 .child(methodName)
                 .child(ticketName),
             args = snapshot.val(),
-            methodDeferred = this._defer,
+            methodDeferred = this._defer(),
             response;
 
         args.push(methodDeferred);
@@ -135,7 +135,7 @@
     APIBase.prototype._createFunction = function (methodName) {
         var self = this;
         return function () {
-            var deferred = this._defer,
+            var deferred = self._defer(),
                 ticket = self._ref
                     .child('queue/request')
                     .child(methodName)
