@@ -112,7 +112,7 @@
             methodDeferred = this._defer(),
             response;
 
-        args.push(methodDeferred);
+        args.push(methodDeferred.resolve);
 
         try {
             response = this[methodName].apply(this, args);

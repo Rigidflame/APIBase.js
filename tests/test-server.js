@@ -10,9 +10,9 @@ apibase.fail = function (search) {
     return "This shouldnt happen.";
 };
 
-apibase.rest = function (time, deferred) {
+apibase.rest = function (time, done) {
     setTimeout(function () {
-        deferred.resolve("Coming from a promise!");
+        done("Coming from a promise!");
         // deferred.cancel to pass an error
     }, time);
 };

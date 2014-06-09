@@ -1,7 +1,7 @@
 {
   "name": "apibase",
   "main": "apibase.js",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "authors": [
     "Abraham Haskins <abe@rigidflame.com>"
   ],
