@@ -1,5 +1,5 @@
 /*jslint nomen: true */
-/*global module, require */
+/*global module, require, process */
 (function () {
 
     "use strict";
@@ -16,6 +16,7 @@
         self._authState = 0;
         self._pendingResolutions = [];
         self._user = {};
+        self._isServer = false;
 
         for (attr in self) {
             self._attributes.push(attr);
@@ -29,6 +30,8 @@
     APIBase.prototype.publish = function () {
         var deferred = this._defer(),
             self = this;
+        
+        self._isServer = true;
 
         this._ref.child('_meta/online').once('value', function (snapshot) {
             if (snapshot.val()) { throw "A APIBase server is already running at " + self._ref.toString(); }
@@ -133,31 +136,60 @@
     };
 
     APIBase.prototype._createFunction = function (methodName) {
-        var self = this;
-        return function () {
-            var deferred = self._defer(),
-                ticket = self._ref
-                    .child('queue/request')
-                    .child(methodName)
-                    .push(
-                        Array.prototype.slice.call(arguments)
-                    );
-
-            self._ref
-                .child('queue/response')
+        if (!this._isServer) {
+            return this._remoteFunction.bind(this, methodName);
+        } else {
+            return this._localFunction.bind(this, methodName);
+        }
+    };
+    
+    APIBase.prototype._remoteFunction = function (methodName) {
+        var deferred = this._defer(),
+            ticket = this._ref
+                .child('queue/request')
                 .child(methodName)
-                .child(ticket.name())
-                .on('value', function (snapshot) {
-                    var returned = snapshot.val();
-                    if (!returned) { return false; }
-                    if (returned.success) { deferred.resolve.apply(this, [snapshot.val().success]); }
-                    if (returned.error) { deferred.cancel.apply(this, [snapshot.val().error]); }
-                    snapshot.ref().off();
-                    snapshot.ref().remove();
-                });
+                .push(
+                    Array.prototype.slice.call(arguments, 1)
+                );
 
-            return deferred.promise;
-        };
+        this._ref
+            .child('queue/response')
+            .child(methodName)
+            .child(ticket.name())
+            .on('value', function (snapshot) {
+                var returned = snapshot.val();
+                if (!returned) { return false; }
+                if (returned.success) { deferred.resolve.apply(this, [snapshot.val().success]); }
+                if (returned.error) { deferred.cancel.apply(this, [snapshot.val().error]); }
+                snapshot.ref().off();
+                snapshot.ref().remove();
+            });
+
+        return deferred.promise;
+    };
+    
+    APIBase.prototype._localFunction = function (methodName) {
+        var deferred = this._defer(),
+            args = Array.prototype.slice.call(arguments, 1);
+        
+        args.push(deferred.resolve);
+        
+        var perform = (function (args) {
+            var resolve = args[args.length - 1],
+                result = this[methodName].apply(this, args);
+            
+            if (result !== undefined) {
+                resolve(result);
+            }
+        }).bind(this, args);
+        
+        if (typeof process !== "undefined") {
+            process.nextTick(perform);
+        } else {
+            setTimeout(perform, 0);
+        }
+        
+        return deferred.promise;
     };
 
     APIBase.prototype._defer = function (context) {

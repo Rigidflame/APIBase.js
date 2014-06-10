@@ -17,5 +17,8 @@ apibase.rest = function (time, done) {
     }, time);
 };
 
-
 apibase.publish();
+
+apibase.get('search')('cats').then(function (result) {
+    console.log(result);
+});
