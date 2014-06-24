@@ -28,7 +28,6 @@ apibase.fail = function (search) {
 apibase.rest = function (time, done) {
     setTimeout(function () {
         done("Coming from a promise!");
-        // deferred.cancel to pass an error
     }, time);
 };
 
