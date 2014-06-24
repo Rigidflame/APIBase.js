@@ -5,16 +5,34 @@
     <script src="../apibase.js"></script>
     <script>
         var apibase = new APIBase("https://brilliant-fire-67.firebaseio.com/apibase");
-        
-        apibase.retreive().then(function(API) {
-            // We wrap API.search in a arbitrary method on window so we can call
-            // it from an onclick for the sake of this demo.
-
-            API.search(phrase).then(function (result) {
-                alert(result);
+        apibase.retrieve().then(function(API) {
+            API.search("Fish").then(function (result) {
+                console.log(result);
             });
 
+            API.fail("This will fail.").then(function (result) {
+                console.log("Success");
+            }, function (err) {
+                console.log("Error: " + err);   
+            });
+
+            API.rest(100).then(function (result) {
+                console.log("Success: " + result);
+            }, function (err) {
+                console.log("Error: " + err);   
+            });
+
+            API.restFail(100).then(function (result) {
+                console.log("Success: " + result);
+            }, function (err) {
+                console.log("Error: " + err);   
+            });
         });
+
+        apibase.get('search')("Blind Fish").then(function (result) {
+            console.log(result);
+        });
+
     </script>
 </head>
 <body>

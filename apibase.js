@@ -17,6 +17,8 @@
         self._pendingResolutions = [];
         self._user = {};
         self._isServer = false;
+        self._cleanUpInterval = 60000;
+        self._context = {}; 
 
         for (attr in self) {
             self._attributes.push(attr);
@@ -30,7 +32,7 @@
     APIBase.prototype.publish = function () {
         var deferred = this._defer(),
             self = this;
-        
+
         self._isServer = true;
 
         this._ref.child('_meta/online').once('value', function (snapshot) {
@@ -38,7 +40,7 @@
             self._pendingResolutions.push(deferred.resolve.bind(deferred));
             self._progress();
         });
-        
+
         deferred.promise.then(function () {
             var attr, methodName, methodQueue, methods = {};
             for (attr in self) {
@@ -58,7 +60,15 @@
             for (methodName in methods) {
                 methodQueue = self._ref.child('queue').child('request');
                 methodQueue.child(methodName).on('child_added', self._handleQueueItem.bind(self));
+                setInterval(self._cleanUp.bind(self, methodName), self._cleanUpInterval);
             }
+            
+            self._ref.child('_meta/online').on('value', function (snapshot) {
+                var online = snapshot.val();
+                if (online) {
+                    self._log("APIBase is listening for requests...");   
+                }
+            });
         });
     };
 
@@ -93,6 +103,10 @@
             self._progress();
         });
     };
+    
+    APIBase.prototype.context = function (contextObj) {
+        this._context = contextObj; 
+    };
 
     APIBase.prototype._progress = function () {
         var resId;
@@ -107,32 +121,70 @@
         var value = snapshot.val(),
             methodName = snapshot.ref().parent().name(),
             ticketName = snapshot.ref().name(),
+            self = this,
+            finish = function (data) {
+                responseRef.setWithPriority(data, root.Firebase.ServerValue.TIMESTAMP);
+                snapshot.ref().remove();
+            },
             responseRef = this._ref
-                .child('queue/response')
-                .child(methodName)
-                .child(ticketName),
-            args = snapshot.val(),
+        .child('queue/response')
+        .child(methodName)
+        .child(ticketName),
+            trafficArgs = snapshot.val().args,
+            context = snapshot.val().ctx,
+            originalArgs = [],
+            a, arg;
+        
+        if (trafficArgs == "\\apibase.empty\\") {
+            trafficArgs = [];   
+        }
+        
+        for (a = 0; a < trafficArgs.length; a += 1) {
+            arg = trafficArgs[a];
+            if (arg == "\\apibase.undefined\\") {
+                originalArgs.push(undefined);   
+            } else if (arg == "\\apibase.null\\") {
+                originalArgs.push(null);   
+            } else {
+                originalArgs.push(arg);
+            }
+        }
+        
+        this._apply(methodName, originalArgs, context).then(function (response) {
+            finish({success: response});
+        }, function (err) {
+            self._log('ERROR: ' + err);   
+            finish({error: err});
+        });
+    };
+
+    APIBase.prototype._apply = function (methodName, args, context) {
+        // This is probably slow and is generally bad, should be replaced
+        // with a non-bad error catching system. I wish async error handling
+        // wasn't awful :(
+        var d = root.domain.create(),
             methodDeferred = this._defer(),
             response;
-
+        
+        args = args || [];
         args.push(methodDeferred.resolve);
-
-        try {
-            response = this[methodName].apply(this, args);
-            if (response !== undefined) {
-                responseRef.child('success').set(response);
-            } else {
-                methodDeferred
-                    .promise
-                    .then(function (response) {
-                        responseRef.child('success').set(response);
-                    });
+        
+        d.run((function(context) {
+            try {
+                response = this[methodName].apply({ctx: context}, args);
+                if (response !== undefined) {
+                    methodDeferred.resolve(response)   
+                }
+            } catch (err) {
+                methodDeferred.cancel(err); 
             }
-        } catch (err) {
-            responseRef.child('error').set(err);
-        }
+        }).bind(this, context)); 
 
-        snapshot.ref().remove();
+        d.on('error', function(err) {
+            methodDeferred.cancel(err);
+        });
+
+        return methodDeferred.promise;
     };
 
     APIBase.prototype._createFunction = function (methodName) {
@@ -142,16 +194,38 @@
             return this._localFunction.bind(this, methodName);
         }
     };
-    
+
     APIBase.prototype._remoteFunction = function (methodName) {
         var deferred = this._defer(),
-            ticket = this._ref
+            orginalArgs = Array.prototype.slice.call(arguments, 1),
+            trafficArgs = [],
+            ticket, arg, a;
+        
+        for (a = 0; a < orginalArgs.length; a += 1) {
+            arg = orginalArgs[a];
+            if (typeof arg == "undefined") {
+                trafficArgs.push("\\apibase.undefined\\");  
+            } else if (arg == null) {
+                trafficArgs.push("\\apibase.null\\");
+            } else {
+                trafficArgs.push(arg);   
+            }
+        }
+            
+        if (!trafficArgs.length) {
+            trafficArgs = "\\apibase.empty\\";   
+        }
+        
+        ticket = this._ref
                 .child('queue/request')
                 .child(methodName)
-                .push(
-                    Array.prototype.slice.call(arguments, 1)
-                );
-
+                .push({
+                    args: trafficArgs,
+                    ctx: this._context
+                });
+        
+        ticket.setPriority(root.Firebase.ServerValue.TIMESTAMP);
+        
         this._ref
             .child('queue/response')
             .child(methodName)
@@ -167,30 +241,46 @@
 
         return deferred.promise;
     };
-    
+
     APIBase.prototype._localFunction = function (methodName) {
         var deferred = this._defer(),
-            args = Array.prototype.slice.call(arguments, 1);
-        
+            args = Array.prototype.slice.call(arguments, 1),
+            context = this._context;
+
         args.push(deferred.resolve);
-        
+
         var perform = (function (args) {
             var resolve = args[args.length - 1],
-                result = this[methodName].apply(this, args);
-            
+                result = this[methodName].apply({ctx: this._context}, args);
+
             if (result !== undefined) {
                 resolve(result);
             }
         }).bind(this, args);
-        
+
         if (typeof process !== "undefined") {
             process.nextTick(perform);
         } else {
             setTimeout(perform, 0);
         }
-        
+
         return deferred.promise;
     };
+    
+    APIBase.prototype._cleanUp = function(methodName) {
+        var self = this;
+        this._ref
+            .child('queue/response')
+            .child(methodName)
+            .endAt(new Date().valueOf() - this._cleanUpInterval)
+            .once('value', function(snap) {
+                if (!snap.numChildren()) return;
+
+                snap.forEach(function(ticketResponse) {
+                    ticketResponse.ref().remove();
+                });
+            });
+    },
 
     APIBase.prototype._defer = function (context) {
         var local = {};
@@ -233,12 +323,20 @@
         return local;
     };
 
+    APIBase.prototype._log = function () {
+        if (typeof window !== "undefined" || typeof module !== "undefined") {
+            console.log.apply(this, Array.prototype.slice.call(arguments));
+        }
+    };
+
+
     root = this || {};
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = function (URL) {
             return new APIBase(URL);
         };
         root.Firebase = require('firebase');
+        root.domain = require('domain');
     } else {
         root = window;
         if (!root.Firebase) {
