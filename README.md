@@ -3,55 +3,45 @@ APIBase.js
 
 APIBase is an absurdly easy way to expose an API in NodeJS and communicate with it all through Firebase. APIBase takes care of the technical details like queueing and leaves you with a simple API to build your API on. 
 
-Quickstart
+Basic Usage
 ----------
+To begin, you must **enable Anonymous Login** on your Firebase. Then **install the security rules** which are specified in `rules.json`.  
 
-For the server portion in node:
+Create a `server.js` file which will be run in Node. 
 
 ```js
 var apibase = require('apibase')("<Your Firebase>/apibase");
 
-// optionally call apibase.auth with a token to authenticate
-// apibase.auth(TOKEN);
+// If you're using the recommended APIBase security rules
+// Your server must authenticate with your Firebase Secret.
+apibase.auth(SECRET);
 
 // Any methods you put on apibase will be exposed publically via your API
 apibase.hello = function (name) {   
-    return 'HELLO MY BEST FRIEND ' + name;
+    return 'Hello ' + name;
 };
 
-apibase.fail = function (search) {   
-    throw search;
-    return "This shouldnt happen.";
-};
-
-// API methods are passed a `done` method.
+// API methods are passed a `done` method which can be used in place of "return"
 apibase.rest = function (time, done) {
     setTimeout(function () {
         done("Coming from a promise!");
     }, time);
 };
 
-// Calling publish allows clients to connect to your API
 apibase.publish();
 ```
 
-For the client portion in a browser:
+Create a `client.js` file which can be included on your webpage (or ran in Node as well).
 
 ```js
 var apibase = new APIBase("<Your Firebase>/apibase");
 
-// optionally call apibase.auth with a token to authenticate
-// apibase.auth(TOKEN);
-
-// We can retrieve an object with our API methods
 apibase.retrieve().then(function(API) {
-    // Then call any API method
+
     API.hello("Abe").then(function (result) {
-        // These methods return promises, because
-        // all API calls are asynchronous
         alert(result);
     }, function (err) {
-        // Provide a second callback to handle errors
+        alert(err);
     });
     
     API.rest(1000).then(function (result) {
@@ -60,18 +50,58 @@ apibase.retrieve().then(function(API) {
 });
 ```
 
-Alternatively, if you don't want to fetch the entire method list on the client, you can "blindly" call an API method like this...
+Then, run `node server.js` and open your `client.js` file in a browser and you're done!
+
+Using a Context
+-------------
+APIBase supports use of a context which is passed to your API methods when they are invoked server-side as `this.ctx`. A context is an object which can contain arbitrary data which is required for most method calls (like a session token).
+
+A client specifies a new context with `APIBase.context`.
 
 ```js
-// Load a specific method
+apibase.context({
+    name: "Abe"
+});
+
+apibase.get("greet")().then(function (greeting) {
+    console.log(greeting); // Logs "Hello Abe"
+});
+```
+
+Using context on the server simply requires reading a field from `this.ctx`.
+
+```js
+apibase.greet = function () {
+    return "Hello " + this.ctx.name;
+};
+
+// Calling publish allows clients to connect to your API
+apibase.publish();
+```
+
+The context will be sent will every method call until a different context is specified. 
+
+Using Blind Methods
+------------------
+
+Although it is generally easier to use `retrieve()` to fetch an object with all known API methods, you can alternatively user blind calls to API methods. Blind calls run the risk of silently failing if the server is not aware of the method being accessed. However, they can be slightly faster if your API consists of hundreds or thousands of methods which would be slow to sync to the client. 
+
+```js
 var hello = apibase.get('hello');
 
-// Then call it like a normal function!
 hello("Blind Fish").then(function (result) {
     console.log(result);
 });
 
 ```
+
+
+Custom Authentication
+--------------
+
+APIBase uses Anonymous Login on the client to ensure secure communication with your server. However, this can be overwritten by calling `APIBase.auth` on a client and providing a token which includes a `uid` field.
+
+
 
 Credits
 -------
