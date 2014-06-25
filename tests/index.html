@@ -3,6 +3,9 @@
     <title>APIBase Demo</title>
     <script type='text/javascript' src='https://cdn.firebase.com/js/client/1.0.15/firebase.js'></script>
     <script src="../apibase.js"></script>
+<script type='text/javascript'
+        src='https://cdn.firebase.com/js/simple-login/1.6.1/firebase-simple-login.js'>
+</script>
     <script>
         var apibase = new APIBase("https://brilliant-fire-67.firebaseio.com/apibase");
         apibase.retrieve().then(function(API) {
@@ -32,6 +35,11 @@
         apibase.get('search')("Blind Fish").then(function (result) {
             console.log(result);
         });
+        
+        var chatRef = new Firebase('https://brilliant-fire-67.firebaseio.com');
+var auth = new FirebaseSimpleLogin(chatRef, function(error, user) {
+  console.log(arguments);
+});
 
     </script>
 </head>

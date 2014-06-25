@@ -96,10 +96,10 @@
     APIBase.prototype.auth = function (token) {
         var self = this;
         self._authState = 1; // Auth in the progress
-        self._ref.auth(token, function (err, user) {
+        self._ref.auth(token.toString(), function (err, data) {
             if (err) { throw err; }
             self._authState = 2; // Auth complete
-            self._user = user;
+            self._user = data.auth;
             self._progress();
         });
     };
@@ -114,6 +114,7 @@
         for (resId = 0; resId < this._pendingResolutions.length; resId += 1) {
             this._pendingResolutions[resId]();
         }
+        this._pendingResolutions = [];
         return true;
     };
 
@@ -132,6 +133,7 @@
         .child(ticketName),
             trafficArgs = snapshot.val().args,
             context = snapshot.val().ctx,
+            uid =  snapshot.val().uid,
             originalArgs = [],
             a, arg;
         
@@ -151,10 +153,10 @@
         }
         
         this._apply(methodName, originalArgs, context).then(function (response) {
-            finish({success: response});
+            finish({success: response, uid: uid});
         }, function (err) {
             self._log('ERROR: ' + err);   
-            finish({error: err});
+            finish({error: err, uid: uid});
         });
     };
 
@@ -216,15 +218,29 @@
             trafficArgs = "\\apibase.empty\\";   
         }
         
-        ticket = this._ref
+        if (this._authState == 0) {
+            this._anonymousLogin()
+        }
+        
+        this._pendingResolutions.push(
+            this._triggerRemote.bind(this, methodName, trafficArgs, deferred)
+        );
+
+        return deferred.promise;
+    };
+    
+    APIBase.prototype._triggerRemote = function (methodName, args, deferred) {
+        var ticket = this._ref
                 .child('queue/request')
                 .child(methodName)
-                .push({
-                    args: trafficArgs,
-                    ctx: this._context
-                });
+                .push();
         
-        ticket.setPriority(root.Firebase.ServerValue.TIMESTAMP);
+        ticket.setWithPriority({
+                args: args,
+                ctx: this._context,
+                uid: this._user.uid
+            },
+            root.Firebase.ServerValue.TIMESTAMP);
         
         this._ref
             .child('queue/response')
@@ -237,9 +253,7 @@
                 if (returned.error) { deferred.cancel.apply(this, [snapshot.val().error]); }
                 snapshot.ref().off();
                 snapshot.ref().remove();
-            });
-
-        return deferred.promise;
+            }); 
     };
 
     APIBase.prototype._localFunction = function (methodName) {
@@ -267,6 +281,20 @@
         return deferred.promise;
     };
     
+    APIBase.prototype._anonymousLogin = function (callback) {
+        var self = this,
+            firebaseName = self._ref.toString().match(/https:\/\/(.+)\.firebaseio.com/)[1],
+            url = "https://auth.firebase.com/auth/anonymous?transport=jsonp&firebase=" + firebaseName;
+        
+        self._authState = 1;
+        self._fetch(url).then(function (auth) {
+            if (auth.error) {
+                throw "Please enable Anonymous Login on your Firebase. (https://www.firebase.com/docs/security/simple-login-anonymous.html)";   
+            }
+            self.auth(auth.token);
+        });
+    };
+    
     APIBase.prototype._cleanUp = function(methodName) {
         var self = this;
         this._ref
@@ -281,6 +309,30 @@
                 });
             });
     },
+        
+    APIBase.prototype._fetch = function (src) {
+        var deferred = this._defer(),
+            reqListener;
+        if (root.request) {
+            root.request(src, function (error, response, body) {
+                deferred.resolve(JSON.parse(body));
+            })        
+        } else {
+            var firebaseName = this._ref.toString().match(/https:\/\/(.+)\.firebaseio.com/)[1];
+            var callbackName = "apibase_" + this._ref.push().name().replace(/-/g, '');
+            window[callbackName] = function (data) {
+                deferred.resolve(data);
+            };
+
+            var script = document.createElement('script');
+            var url = "https://auth.firebase.com/auth/anonymous?transport=jsonp&firebase=" + firebaseName + "&callback=" + callbackName;
+            script.setAttribute("type", "text/javascript");
+            script.setAttribute("src", url);
+
+            document.getElementsByTagName("head")[0].appendChild(script);  
+        }
+        return deferred.promise;
+    };
 
     APIBase.prototype._defer = function (context) {
         var local = {};
@@ -329,7 +381,6 @@
         }
     };
 
-
     root = this || {};
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = function (URL) {
@@ -337,6 +388,7 @@
         };
         root.Firebase = require('firebase');
         root.domain = require('domain');
+        root.request = require('request');
     } else {
         root = window;
         if (!root.Firebase) {

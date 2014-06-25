@@ -1,5 +1,7 @@
 var apibase = require('../apibase')("https://brilliant-fire-67.firebaseio.com/apibase");
 
+apibase.auth('HsiO9VNUQBW25QiFRKaDMfDhFhgaLUB1R56RMbzJ');
+
 apibase.greeting = function () {
     return "Hello " + this.ctx.name;
 };

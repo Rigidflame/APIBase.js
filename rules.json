@@ -1,0 +1,30 @@
+{
+  "rules": {
+    "apibase": {
+      ".read": false,
+      ".write": false,
+      "_meta": {
+        ".read": true,
+        ".write": true
+      },
+      "queue": {
+        "request": {
+          "$method": {
+            "$ticket": {
+              ".write": "auth !== null && !data.exists() && newData.child('uid').val() == auth.uid",
+              ".read": false
+            }
+          }
+        },
+        "response": {
+          "$method": {
+            "$ticket": {
+              ".write": "auth !== null && data.child('uid').val() == auth.uid" ,
+              ".read": "!data.exists() || (auth !== null && data.child('uid').val() == auth.uid)"
+            }
+          }
+        }
+      }
+    }
+  }
+}
