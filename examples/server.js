@@ -1,6 +1,6 @@
 var apibase = require('../apibase')("https://brilliant-fire-67.firebaseio.com/apibase");
 
-apibase.auth(/* Secret */);
+apibase.auth('fHrjFIjr3xI0gTblIugreAsmlqvCE6rdGALVyb3M');
 
 apibase.greeting = function () {
     return "Hello " + this.ctx.name;

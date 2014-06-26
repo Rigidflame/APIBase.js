@@ -15,6 +15,7 @@
         self._online = false;
         self._authState = 0;
         self._pendingResolutions = [];
+        self._methods = {};
         self._user = {};
         self._isServer = false;
         self._cleanUpInterval = 60000;
@@ -42,14 +43,14 @@
         });
 
         deferred.promise.then(function () {
-            var attr, methodName, methodQueue, methods = {};
+            var attr, methodName, methodQueue
             for (attr in self) {
                 if (self._attributes.indexOf(attr) === -1) {
-                    methods[attr] = true;
+                    self._methods[attr] = true;
                 }
             }
 
-            self._ref.child('_meta/methods').set(methods);
+            self._ref.child('_meta/methods').set(self._methods);
             self._ref.child('_meta/methods')
                 .onDisconnect().remove();
 
@@ -57,11 +58,13 @@
             self._ref.child('_meta/online')
                 .onDisconnect().set(false);
 
-            for (methodName in methods) {
+            for (methodName in self._methods) {
                 methodQueue = self._ref.child('queue').child('request');
                 methodQueue.child(methodName).on('child_added', self._handleQueueItem.bind(self));
                 setInterval(self._cleanUp.bind(self, methodName), self._cleanUpInterval);
             }
+            
+            self._ref.child('queue').child('request').on('child_added', self._handleMethodType.bind(self));
             
             self._ref.child('_meta/online').on('value', function (snapshot) {
                 var online = snapshot.val();
@@ -117,6 +120,14 @@
         this._pendingResolutions = [];
         return true;
     };
+    
+    APIBase.prototype._handleMethodType = function (snapshot) {
+        var methodName = snapshot.name();
+        if (!this._methods[methodName]) {
+            console.log('Unknown method "' + methodName + '" was called. Cleaning up...');
+            snapshot.ref().remove();
+        }
+    };
 
     APIBase.prototype._handleQueueItem = function (snapshot) {
         var value = snapshot.val(),
@@ -128,14 +139,24 @@
                 snapshot.ref().remove();
             },
             responseRef = this._ref
-        .child('queue/response')
-        .child(methodName)
-        .child(ticketName),
+                .child('queue/response')
+                .child(methodName)
+                .child(ticketName),
             trafficArgs = snapshot.val().args,
             context = snapshot.val().ctx,
             uid =  snapshot.val().uid,
             originalArgs = [],
             a, arg;
+        
+        if (!trafficArgs) {
+            console.log("ERROR: Request Queue ticket has malformed or no arguments field.");   
+            return;
+        }
+        
+        if (!uid) {
+            console.log("ERROR: Request Queue ticket has no UID field.");  
+            return;
+        }
         
         if (trafficArgs == "\\apibase.empty\\") {
             trafficArgs = [];   
@@ -325,7 +346,7 @@
             };
 
             var script = document.createElement('script');
-            var url = "https://auth.firebase.com/auth/anonymous?transport=jsonp&firebase=" + firebaseName + "&callback=" + callbackName;
+            var url = src + "&callback=" + callbackName;
             script.setAttribute("type", "text/javascript");
             script.setAttribute("src", url);
 

@@ -36,7 +36,7 @@ apibase.retrieve().then(function(API) {
 });
 
 // Option 2 - Call a method directly and hope the server knows this method.
-var search = apibase.get('search');
+var search = apibase.get('find');
 
 search("Blind Fish").then(function (result) {
     console.log(result);
