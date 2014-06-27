@@ -103,6 +103,7 @@
             if (err) { throw err; }
             self._authState = 2; // Auth complete
             self._user = data.auth;
+            
             self._progress();
         });
     };
@@ -124,7 +125,7 @@
     APIBase.prototype._handleMethodType = function (snapshot) {
         var methodName = snapshot.name();
         if (!this._methods[methodName]) {
-            console.log('Unknown method "' + methodName + '" was called. Cleaning up...');
+            self._log('Unknown method "' + methodName + '" was called. Cleaning up...');
             snapshot.ref().remove();
         }
     };
@@ -149,12 +150,12 @@
             a, arg;
         
         if (!trafficArgs) {
-            console.log("ERROR: Request Queue ticket has malformed or no arguments field.");   
+            self._log("ERROR: Request Queue ticket has malformed or no arguments field.");   
             return;
         }
         
         if (!uid) {
-            console.log("ERROR: Request Queue ticket has no UID field.");  
+            self._log("ERROR: Request Queue ticket has no UID field.");  
             return;
         }
         
