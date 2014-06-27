@@ -114,7 +114,7 @@
 
     APIBase.prototype._progress = function () {
         var resId;
-        if (this._authState === 1) { return false; }
+        if (this._authState !== 2) { return false; }
         for (resId = 0; resId < this._pendingResolutions.length; resId += 1) {
             this._pendingResolutions[resId]();
         }
@@ -125,7 +125,7 @@
     APIBase.prototype._handleMethodType = function (snapshot) {
         var methodName = snapshot.name();
         if (!this._methods[methodName]) {
-            self._log('Unknown method "' + methodName + '" was called. Cleaning up...');
+            this._log('Unknown method "' + methodName + '" was called. Cleaning up...');
             snapshot.ref().remove();
         }
     };
@@ -241,13 +241,14 @@
         }
         
         if (this._authState == 0) {
-            this._anonymousLogin()
+            this._anonymousLogin();
+            this._pendingResolutions.push(
+                this._triggerRemote.bind(this, methodName, trafficArgs, deferred)
+            );
+        }else{
+            this._triggerRemote(methodName, trafficArgs, deferred)        
         }
-        
-        this._pendingResolutions.push(
-            this._triggerRemote.bind(this, methodName, trafficArgs, deferred)
-        );
-
+    
         return deferred.promise;
     };
     
