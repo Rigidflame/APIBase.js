@@ -96,15 +96,21 @@
         return deferred.promise;
     };
 
-    APIBase.prototype.auth = function (token) {
+    APIBase.prototype.auth = function (token, overwriteExistingAuth) {
         var self = this;
         self._authState = 1; // Auth in the progress
-        self._ref.auth(token.toString(), function (err, data) {
-            if (err) { throw err; }
-            self._authState = 2; // Auth complete
-            self._user = data.auth;
+        self._ref.root().child('.info/authenticated').on('value', function (snapshot) {
+            var authenticated = snapshot.val(); 
             
-            self._progress();
+            if (authenticated && !overwriteExistingAuth) return;
+            
+            self._ref.auth(token.toString(), function (err, data) {
+                if (err) { throw err; }
+                self._authState = 2; // Auth complete
+                self._user = data.auth;
+
+                self._progress();
+            });
         });
     };
     
