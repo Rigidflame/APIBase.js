@@ -99,7 +99,7 @@
     APIBase.prototype.auth = function (token, overwriteExistingAuth) {
         var self = this;
         self._authState = 1; // Auth in the progress
-        self._ref.root().child('.info/authenticated').on('value', function (snapshot) {
+        self._ref.root().child('.info/authenticated').once('value', function (snapshot) {
             var authenticated = snapshot.val(); 
             
             if (authenticated && !overwriteExistingAuth) return;
@@ -111,6 +111,17 @@
 
                 self._progress();
             });
+        });
+    };
+    
+    APIBase.prototype.setTrustedUser = function (user) {
+        var self = this;
+        self._ref.root().child('.info/authenticated').once('value', function (snapshot) {
+            var authenticated = snapshot.val();
+            
+            if (!authenticated) throw "setTrustedUser should only be called when you've manually authenticated.";
+            
+            self._user = user;
         });
     };
     
