@@ -99,13 +99,17 @@ hello("Blind Fish").then(function (result) {
 Authentication
 --------------
 
-By default APIBase uses Anonymous Login on the client to ensure secure communication with your server. However, custom authentication can be used in two different ways.
+APIBase requires all requests to be made by an authenticated user with a unique `uid` field in their token data. There are several options availible which allow you to integrate APIBase's authentication with any existing Firebase app. 
 
-### Option 1: Calling APIBase.auth 
+### Option 0: Using Anonymous Login (Default)
+
+APIBase makes use of Firebase's powerful Anonymous Login to ensure that requests are secure even when a user is not logged in. By default, every request made from the APIBase client will be authenticated and secured via this  method, unless another authentication system is required by your app.
+
+### Option 1: Calling APIBase.auth (Custom Login)
 
 An APIBase instance provides an `auth` method which takes a valid Firebase Auth token. When `auth` is called, APIBase will unauth any existing authentication on the Firebase (from, for example, Simple Login) then authenticate with the new token. This method is great if you're using a custom authentication system where your clients retrieve the tokens and would normally just call `FirebaseRef.auth`.
 
-### Option 2: Calling APIBase.setUserData
+### Option 2: Calling APIBase.setUserData (Simple Login)
 
 If you're user is already logged in via Simple Login or another method, it can be difficult to retrieve the current authenication token which would be needed by `APIBase.auth`. Alternatively, you can call `setUserData` with a `user` object. APIBase will assume that the `uid` field on the `user` object will be the same as the UID which your Firebase is currently authenticated with. 
 
