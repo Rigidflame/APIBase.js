@@ -1,15 +1,10 @@
 var apibase = require('../apibase')("https://brilliant-fire-67.firebaseio.com/apibase");
 
-apibase.context({
-    name: "Abe"
-});
-
 apibase.retrieve().then(function (API) {
-    console.log('here');
     var t = 0;
 
     for (var r = 0; r<10000; r++) {
-        API.hello().then(function (result) {
+        API.hello_world().then(function (result) {
             t++;
             console.log(t);
             if (t == 10000) process.exit();
@@ -17,8 +12,8 @@ apibase.retrieve().then(function (API) {
     }
 });
 
-var hello = apibase.get('hello');
+var hello_world = apibase.get('hello_world');
 
-hello().then(function (result) {
+hello_world().then(function (result) {
     console.log(result);
 });

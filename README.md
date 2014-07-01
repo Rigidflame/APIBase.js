@@ -136,6 +136,23 @@ var auth = new FirebaseSimpleLogin(ref, function(error, user) {
 });
 ```
 
+Benchmarks
+----------------------
+
+APIBase should significantly out perform HTTP in most situations, but it especially shines when you are making several requests from the same client (for example, in a Single Page App).
+
+Included is a hacked up a comparison between Express and APIBase which both implement a `hello_world` method which simply returns "Hello World" to the client. As I suspected, APIBase dramatically out performs HTTP in this test. This test makes 10000 requests to the `hello_world` endpoint and my experiences show APIBase being **over 3x faster than HTTP**.
+
+**Express (for 10000 requests)**
+
+    2m41.386s
+
+**APIBase (for 10000 requests)**
+
+    0m47.765s
+
+This test is by no means conclusive, but it does show that APIBase can easily out perform a simple Express endpoint.
+
 Credits
 -------
 

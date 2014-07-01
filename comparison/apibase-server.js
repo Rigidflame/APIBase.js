@@ -3,7 +3,7 @@ var secrets = require('../examples/secrets');
 
 apibase.auth(secrets.token);
 
-apibase.hello = function () {
+apibase.hello_world = function () {
     return "Hello world";
 };
 

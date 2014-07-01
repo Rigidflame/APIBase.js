@@ -26,6 +26,7 @@
   },
   "homepage": "https://github.com/Rigidflame/APIBase.js",
   "dependencies": {
-    "firebase": "^1.0.17"
+    "firebase": "^1.0.17",
+    "request": "^2.36.0"
   }
 }
