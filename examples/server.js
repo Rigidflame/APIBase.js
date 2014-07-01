@@ -1,6 +1,7 @@
 var apibase = require('../apibase')("https://brilliant-fire-67.firebaseio.com/apibase");
+var secrets = require('./secrets');
 
-apibase.auth('fHrjFIjr3xI0gTblIugreAsmlqvCE6rdGALVyb3M');
+apibase.auth(secrets.token);
 
 apibase.greeting = function () {
     return "Hello " + this.ctx.name;
@@ -28,6 +29,7 @@ apibase.restFail = function (time, done) {
     }, time);
 };
 
+// Test 
 
 apibase.publish();
 

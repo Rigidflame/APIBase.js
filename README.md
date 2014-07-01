@@ -96,14 +96,43 @@ hello("Blind Fish").then(function (result) {
 ```
 
 
-Custom Authentication
+Authentication
 --------------
 
-APIBase uses Anonymous Login on the client to ensure secure communication with your server. However, this can be overwritten by calling `APIBase.auth` on a client and providing a token which includes a `uid` field.
+By default APIBase uses Anonymous Login on the client to ensure secure communication with your server. However, custom authentication can be used in two different ways.
 
+### Option 1: Calling APIBase.auth 
 
+An APIBase instance provides an `auth` method which takes a valid Firebase Auth token. When `auth` is called, APIBase will unauth any existing authentication on the Firebase (from, for example, Simple Login) then authenticate with the new token. This method is great if you're using a custom authentication system where your clients retrieve the tokens and would normally just call `FirebaseRef.auth`.
+
+### Option 2: Calling APIBase.setUserData
+
+If you're user is already logged in via Simple Login or another method, it can be difficult to retrieve the current authenication token which would be needed by `APIBase.auth`. Alternatively, you can call `setUserData` with a `user` object. APIBase will assume that the `uid` field on the `user` object will be the same as the UID which your Firebase is currently authenticated with. 
+
+Here is an example integration of APIBase with Firebase Simple Login.
+
+```js
+var URL = 'https://<YOUR-FIREBASE>.firebaseio.com';
+var ref = new Firebase(URL);
+var apibase = new APIBase(ref.child('api'));
+
+var auth = new FirebaseSimpleLogin(ref, function(error, user) {
+  if (error) {
+    // an error occurred while attempting login
+    console.log(error);
+  } else if (user) {
+    // user authenticated with Firebase
+    console.log('User ID: ' + user.uid + ', Provider: ' + user.provider);
+    
+    // Tell APIBase that our user data has changed
+    apibase.setUserData(user);
+  } else {
+    // user is logged out
+  }
+});
+```
 
 Credits
 -------
 
-Development of this library is sponsored by [Rigidflame Consultants](http://www.rigidflame.com).
+Development of this library is sponsored by [Rigidflame Consulting](http://www.rigidflame.com).

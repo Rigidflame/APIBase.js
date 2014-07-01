@@ -6,11 +6,17 @@
 
     var APIBase, root;
 
-    APIBase = function (URL) {
-        if (typeof URL !== 'string') { throw new Error("URL must be a string!"); }
+    APIBase = function (firebase) {
         var attr, self = this;
+        
+        if (typeof firebase == 'string') {
+            self._ref = new root.Firebase(firebase);
+        }
+        
+        if (typeof firebase == 'object') {
+            self._ref = firebase; 
+        }
 
-        self._ref = new root.Firebase(URL);
         self._attributes = [];
         self._online = false;
         self._authState = 0;
@@ -20,6 +26,7 @@
         self._isServer = false;
         self._cleanUpInterval = 60000;
         self._context = {}; 
+        
 
         for (attr in self) {
             self._attributes.push(attr);
@@ -114,12 +121,12 @@
         });
     };
     
-    APIBase.prototype.setTrustedUser = function (user) {
+    APIBase.prototype.setUserData = function (user) {
         var self = this;
         self._ref.root().child('.info/authenticated').once('value', function (snapshot) {
             var authenticated = snapshot.val();
             
-            if (!authenticated) throw "setTrustedUser should only be called when you've manually authenticated.";
+            if (!authenticated) throw "setUserData should only be called after you've manually authenticated.";
             
             self._user = user;
         });
