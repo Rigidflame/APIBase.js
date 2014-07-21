@@ -47,3 +47,7 @@ search("Blind Fish").then(function (result) {
     console.log('0');
     console.log(result);
 });
+search("Flying Fish").then(function (result) {
+    console.log('6');
+    console.log(result);
+});

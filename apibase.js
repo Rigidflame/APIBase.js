@@ -264,7 +264,7 @@
             trafficArgs = "\\apibase.empty\\";   
         }
         
-        if (this._authState == 0) {
+        if (this._authState !== 2) {
             this._anonymousLogin();
             this._pendingResolutions.push(
                 this._triggerRemote.bind(this, methodName, trafficArgs, deferred)
