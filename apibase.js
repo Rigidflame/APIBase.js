@@ -4,7 +4,11 @@
 
     "use strict";
 
-    var APIBase, root;
+    var APIBase, 
+        root,
+        NOT_STARTED = 0,
+        IN_PROGRESS = 1,
+        COMPLETE = 2;
 
     APIBase = function (firebase) {
         var attr, self = this;
@@ -19,7 +23,7 @@
 
         self._attributes = [];
         self._online = false;
-        self._authState = 0;
+        self._authState = NOT_STARTED;
         self._pendingResolutions = [];
         self._methods = {};
         self._user = {};
@@ -44,7 +48,9 @@
         self._isServer = true;
 
         this._ref.child('_meta/online').once('value', function (snapshot) {
-            if (snapshot.val()) { throw "A APIBase server is already running at " + self._ref.toString(); }
+            if (snapshot.val()) { 
+                throw "A APIBase server is already running at " + self._ref.toString();
+            }
             self._pendingResolutions.push(deferred.resolve.bind(deferred));
             self._progress();
         });
@@ -56,22 +62,15 @@
                     self._methods[attr] = true;
                 }
             }
-
-            self._ref.child('_meta/methods').set(self._methods);
-            self._ref.child('_meta/methods')
-                .onDisconnect().remove();
-
-            self._ref.child('_meta/online').set(true);
-            self._ref.child('_meta/online')
-                .onDisconnect().set(false);
-
+            
             for (methodName in self._methods) {
                 methodQueue = self._ref.child('queue').child('request');
                 methodQueue.child(methodName).on('child_added', self._handleQueueItem.bind(self));
                 setInterval(self._cleanUp.bind(self, methodName), self._cleanUpInterval);
             }
             
-            self._ref.child('queue').child('request').on('child_added', self._handleMethodType.bind(self));
+            self._ref.child('queue').child('request')
+                .on('child_added', self._handleMethodType.bind(self));
             
             self._ref.child('_meta/online').on('value', function (snapshot) {
                 var online = snapshot.val();
@@ -79,6 +78,8 @@
                     self._log("APIBase is listening for requests...");   
                 }
             });
+            
+            self._publicizeStatus();
         });
     };
 
@@ -105,7 +106,7 @@
 
     APIBase.prototype.auth = function (token, overwriteExistingAuth) {
         var self = this;
-        self._authState = 1; // Auth in the progress
+        self._authState = IN_PROGRESS;
         self._ref.root().child('.info/authenticated').once('value', function (snapshot) {
             var authenticated = snapshot.val(); 
             
@@ -113,7 +114,7 @@
             
             self._ref.auth(token.toString(), function (err, data) {
                 if (err) { throw err; }
-                self._authState = 2; // Auth complete
+                self._authState = COMPLETE;
                 self._user = data.auth;
 
                 self._progress();
@@ -126,9 +127,10 @@
         self._ref.root().child('.info/authenticated').once('value', function (snapshot) {
             var authenticated = snapshot.val();
             
-            if (!authenticated) throw "setUserData should only be called after you've manually authenticated.";
+            if (!authenticated) 
+                throw "setUserData should only be called after you've manually authenticated.";
             
-            self._authState = 2;
+            self._authState = COMPLETE;
             self._user = user;
         });
     };
@@ -136,10 +138,26 @@
     APIBase.prototype.context = function (contextObj) {
         this._context = contextObj; 
     };
+    
+    APIBase.prototype._publicizeStatus = function () {
+        var self = this;
+        
+        self._ref.child('_meta/methods').on('value', function (snapshot) {
+            snapshot.ref().set(self._methods); 
+        });
+        self._ref.child('_meta/methods')
+            .onDisconnect().remove();
+
+        self._ref.child('_meta/online').on('value', function (snapshot) {
+            snapshot.ref().set(true); 
+        });
+        self._ref.child('_meta/online')
+            .onDisconnect().set(false);
+    };
 
     APIBase.prototype._progress = function () {
         var resId;
-        if (this._authState !== 2) { return false; }
+        if (this._authState !== COMPLETE) { return false; }
         for (resId = 0; resId < this._pendingResolutions.length; resId += 1) {
             this._pendingResolutions[resId]();
         }
@@ -265,7 +283,7 @@
             trafficArgs = "\\apibase.empty\\";   
         }
         
-        if (this._authState !== 2) {
+        if (this._authState !== COMPLETE) {
             this._anonymousLogin();
             this._pendingResolutions.push(
                 this._triggerRemote.bind(this, methodName, trafficArgs, deferred)
@@ -334,7 +352,7 @@
             firebaseName = self._ref.toString().match(/https:\/\/(.+)\.firebaseio.com/)[1],
             url = "https://auth.firebase.com/auth/anonymous?transport=jsonp&firebase=" + firebaseName;
         
-        self._authState = 1;
+        self._authState = IN_PROGRESS;
         self._fetch(url).then(function (auth) {
             if (auth.error) {
                 throw "Please enable Anonymous Login on your Firebase. (https://www.firebase.com/docs/security/simple-login-anonymous.html)";   
@@ -364,7 +382,7 @@
         if (root.request) {
             root.request(src, function (error, response, body) {
                 deferred.resolve(JSON.parse(body));
-            })        
+            });      
         } else {
             var firebaseName = this._ref.toString().match(/https:\/\/(.+)\.firebaseio.com/)[1];
             var callbackName = "apibase_" + this._ref.push().name().replace(/-/g, '');
