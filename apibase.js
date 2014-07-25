@@ -128,6 +128,7 @@
             
             if (!authenticated) throw "setUserData should only be called after you've manually authenticated.";
             
+            self._authState = 2;
             self._user = user;
         });
     };
