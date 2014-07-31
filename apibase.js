@@ -97,8 +97,17 @@
                 var methodName = methodSnapshot.name();
                 API[methodName] = self._createFunction(methodName);
             });
-            self._pendingResolutions.push(deferred.resolve.bind(deferred, API));
-            self._progress();
+            
+            if (self._authState == NOT_STARTED) {
+                self._anonymousLogin();
+            }
+            
+            if (self._authState !== COMPLETE) {
+                self._pendingResolutions.push(deferred.resolve.bind(deferred, API));
+                self._progress();
+            } else {
+                deferred.resolve(API);
+            }
         });
 
         return deferred.promise;

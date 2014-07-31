@@ -13,6 +13,12 @@
             console.log(result);
         });
         
+        apibase.retrieve().then(function (API) {
+            API.search("ReFish").then(function (result) {
+                console.log(result);
+            })
+        });
+        
         var chatRef = new Firebase('https://brilliant-fire-67.firebaseio.com');
         var auth = new FirebaseSimpleLogin(chatRef, function(error, user) {
           console.log(arguments);
