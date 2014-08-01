@@ -141,6 +141,7 @@
             
             self._authState = COMPLETE;
             self._user = user;
+            self._progress();
         });
     };
     
