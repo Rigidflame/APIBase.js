@@ -281,6 +281,7 @@
         var deferred = this._defer(),
             orginalArgs = Array.prototype.slice.call(arguments, 1),
             trafficArgs = [],
+            self = this,
             ticket, arg, a;
         
         for (a = 0; a < orginalArgs.length; a += 1) {
