@@ -371,8 +371,6 @@
         var self = this,
             firebaseName = self._ref.toString().match(/https:\/\/(.+)\.firebaseio.com/)[1],
             url = "https://auth.firebase.com/auth/anonymous?transport=jsonp&firebase=" + firebaseName;
-
-        if (!self._autoAnonymousLogin) return;
         
         self._authState = IN_PROGRESS;
         self._fetch(url).then(function (auth) {
