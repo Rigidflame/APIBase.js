@@ -30,6 +30,7 @@
         self._isServer = false;
         self._cleanUpInterval = 60000;
         self._context = {}; 
+        self._autoAnonymousLogin = true;
         
 
         for (attr in self) {
@@ -98,7 +99,7 @@
                 API[methodName] = self._createFunction(methodName);
             });
             
-            if (self._authState == NOT_STARTED) {
+            if (self._authState == NOT_STARTED && self._autoAnonymousLogin) {
                 self._anonymousLogin();
             }
             
@@ -147,6 +148,10 @@
     
     APIBase.prototype.context = function (contextObj) {
         this._context = contextObj; 
+    };
+
+    APIBase.prototype.enableAutoAnonymousLogin = function (autoAnonymousLogin) {
+        this._autoAnonymousLogin = autoAnonymousLogin;
     };
     
     APIBase.prototype._publicizeStatus = function () {
@@ -293,15 +298,19 @@
             trafficArgs = "\\apibase.empty\\";   
         }
         
-        if (this._authState !== COMPLETE) {
-            this._anonymousLogin();
-            this._pendingResolutions.push(
+        if (self._authState == NOT_STARTED && self._autoAnonymousLogin) {
+            self._anonymousLogin();
+        }
+        
+        if (self._authState !== COMPLETE) {
+            self._pendingResolutions.push(
                 this._triggerRemote.bind(this, methodName, trafficArgs, deferred)
             );
-        }else{
-            this._triggerRemote(methodName, trafficArgs, deferred)        
+            self._progress();
+        } else {
+            this._triggerRemote(methodName, trafficArgs, deferred)
         }
-    
+
         return deferred.promise;
     };
     
@@ -357,10 +366,12 @@
         return deferred.promise;
     };
     
-    APIBase.prototype._anonymousLogin = function (callback) {
+    APIBase.prototype._anonymousLogin = function () {
         var self = this,
             firebaseName = self._ref.toString().match(/https:\/\/(.+)\.firebaseio.com/)[1],
             url = "https://auth.firebase.com/auth/anonymous?transport=jsonp&firebase=" + firebaseName;
+
+        if (!self._autoAnonymousLogin) return;
         
         self._authState = IN_PROGRESS;
         self._fetch(url).then(function (auth) {

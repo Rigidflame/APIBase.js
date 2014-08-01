@@ -1,6 +1,6 @@
 {
   "name": "apibase",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Easily build APIs on top of Firebase",
   "main": "apibase.js",
   "directories": {
